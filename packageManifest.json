@@ -10,16 +10,18 @@
       "namespace": "bsileo",
       "location": "https://raw.githubusercontent.com/bsileo/Hubitat_RainMachine/master/smartapps/bsileo/rainmachine.src/rainmachine.groovy",
       "required": true,
-      "oauth": false
+      "oauth": false,
+      "version": "0.9.1"
     }
   ],
   "drivers": [
     {
       "id": "549c99fc-a017-4c0b-b3b5-297933171bfb",
       "name": "RainMachine",
-      "namespace": "brbeaird",
+      "namespace": "bsileo",
       "location": "https://raw.githubusercontent.com/bsileo/Hubitat_RainMachine/master/devicetypes/bsileo/rainmachine.src/rainmachine.groovy",
-      "required": true
+      "required": true,
+      "version": "0.9.1"
     }
   ]
 }
