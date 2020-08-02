@@ -564,7 +564,7 @@ def initialize() {
             childDeviceAttrib = ["name": fullName, "completedSetup": true]
 
             try{
-                childDevice = addChildDevice("brbeaird", "RainMachine", dni, null, childDeviceAttrib)
+                childDevice = addChildDevice("bsileo", "RainMachine", dni, null, childDeviceAttrib)
                 state.installMsg = state.installMsg + deviceName + ": device created. \r\n\r\n"
             }
             catch(e)
