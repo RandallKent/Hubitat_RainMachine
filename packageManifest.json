@@ -1,0 +1,25 @@
+{
+  "packageName": "Rain Machine",
+  "author": "Brad sileo",
+  "minimumHEVersion": "0.0",
+  "dateReleased": "2020-08-02",
+  "apps": [
+    {
+      "id": "7760a272-85b7-40e7-99c3-1864df4f65f2",
+      "name": "RainMachine",
+      "namespace": "bsileo",
+      "location": "https://raw.githubusercontent.com/bsileo/Hubitat_RainMachine/master/smartapps/bsileo/rainmachine.src/rainmachine.groovy",
+      "required": true,
+      "oauth": false
+    }
+  ],
+  "drivers": [
+    {
+      "id": "549c99fc-a017-4c0b-b3b5-297933171bfb",
+      "name": "RainMachine",
+      "namespace": "brbeaird",
+      "location": "https://raw.githubusercontent.com/bsileo/Hubitat_RainMachine/master/devicetypes/bsileo/rainmachine.src/rainmachine.groovy",
+      "required": true
+    }
+  ]
+}
