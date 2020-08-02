@@ -2,8 +2,8 @@ Hubitat RainMachine
 =======================
 
 <a href="https://www.amazon.com/Hubitat-Elevation-Home-Automation-Hub/dp/B07D19VVTX">
-<img border="0" src="https://cdn.shopify.com/s/files/1/2575/8806/t/20/assets/hubitat-logo-white.png?v=16941843700555152122" ></a>
-<img src="http://ir-na.amazon-adsystem.com/e/ir?t=githubcoderep-20&l=as2&o=1&a=B00FWYESVQ" width="1" height="1" border="0" alt="" style="border:none !important; margin:0px !important;" /> 
+<img border="0" width="100" src="https://community.hubitat.com/uploads/default/optimized/2X/5/5d5a34d66ecef2a6b842247822fe1378d912a03a_2_1035x579.jpeg" ></a>
+</a>
 <a href="http://www.amazon.com/gp/product/B00CT5PNBU/ref=as_li_tl?ie=UTF8&camp=1789&creative=390957&creativeASIN=B00CT5PNBU&linkCode=as2&tag=githubcoderep-20&linkId=TMHCNV23OPPKUPDV">
 <img border="0" src="http://ws-na.amazon-adsystem.com/widgets/q?_encoding=UTF8&ASIN=B00CT5PNBU&Format=_SL110_&ID=AsinImage&MarketPlace=US&ServiceVersion=20070822&WS=1&tag=githubcoderep-20" ></a>
 <img src="http://ir-na.amazon-adsystem.com/e/ir?t=githubcoderep-20&l=as2&o=1&a=B00CT5PNBU" width="1" height="1" border="0" alt="" style="border:none !important; margin:0px !important;" />
