@@ -12,7 +12,7 @@ Hubitat RainMachine
 <img src="http://i.imgur.com/c4QHSUKs.jpg" width="1" height="1" border="0" alt="" style="border:none !important; margin:0px !important;" />
 
 
-For [prerequisites](https://github.com/brbeaird/SmartThings_RainMachine/wiki/Prerequisite).
+Check these [prerequisites](https://github.com/brbeaird/SmartThings_RainMachine/wiki/Prerequisite).
 
 ### Installation:
 
