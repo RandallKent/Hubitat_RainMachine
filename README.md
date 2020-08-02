@@ -1,5 +1,6 @@
 Hubitat RainMachine
 =======================
+Provides an integration between the Rain Machine Irrigation Controller and Hubitat. After installation, each zone valve can be controlled from Hubitat as well as each program. Includes a polling-based mechanism to update the current status of the sprinkler controller within Hubitat. 
 
 <a href="https://www.amazon.com/Hubitat-Elevation-Home-Automation-Hub/dp/B07D19VVTX">
 <img border="0" width="100" src="https://community.hubitat.com/uploads/default/optimized/2X/5/5d5a34d66ecef2a6b842247822fe1378d912a03a_2_1035x579.jpeg" ></a>
