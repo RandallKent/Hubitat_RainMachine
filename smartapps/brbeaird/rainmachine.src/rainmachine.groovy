@@ -6,11 +6,13 @@
  *	RainMachine Service Manager SmartApp
  *
  *  Author: Jason Mok/Brian Beaird
- *  Last Updated: 2019-03-27
+ *      Ported to Hubitat 2020 Brad Sileo
+ *  Last Updated: 2020-07-29
  *
  ***************************
  *
  *  Copyright 2019 Brian Beaird
+
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -27,13 +29,12 @@
  * 3) For each items you pick on the Programs/Zones page, it will create a device
  * 4) Enjoy!
  */
-include 'asynchttp_v1'
 
 definition(
 	name: "RainMachine",
-	namespace: "brbeaird",
-	author: "Jason Mok",
-	description: "Connect your RainMachine to control your irrigation",
+	namespace: "bsileo",
+	author: "Brad Sileo",
+	description: "Connect your RainMachine to control your irrigation - credit to Jason Mok for original code",
 	category: "SmartThings Labs",
 	iconUrl:   "https://raw.githubusercontent.com/brbeaird/SmartThings_RainMachine/master/icons/rainmachine.1x.png",
 	iconX2Url: "https://raw.githubusercontent.com/brbeaird/SmartThings_RainMachine/master/icons/rainmachine.2x.png",
@@ -68,8 +69,8 @@ def prefLogIn() {
     def showUninstall = true
 	return dynamicPage(name: "prefLogIn", title: "Connect to RainMachine", nextPage:"prefLogInWait", uninstall:showUninstall, install: false) {
 		section("Server Information"){
-			input("ip_address", "text", title: "Local IP Address of RainMachine", description: "Local IP Address of RainMachine", defaultValue: "192.168.1.0")
-            input("port", "text", title: "Port # - typically 18080 or 8081 (for newer models)", description: "Port. Older models use 80. Newer models like the Mini use 18080", defaultValue: "8081")
+			input("ip_address", "text", title: "Local IP Address of RainMachine", description: "Local IP Address of RainMachine", defaultValue: "192.168.1.100")
+            input("port", "text", title: "Port # - typically 8080 or 8081 (for newer models)", description: "Port. Older models use 80. Newer models like the Mini use 8080", defaultValue: "8080")
             input("password", "password", title: "Password", description: "RainMachine password", defaultValue: "admin")
 		}
 
@@ -85,8 +86,23 @@ def prefLogIn() {
             href(name: "href", title: "Uninstall", required: false, page: "prefUninstall")
         }
         section("Advanced (optional)", hideable: true, hidden:true){
-            paragraph "This app has to 'scan' for programs. By default, it scans from ID 1-30. If you have deleted/created more than 30 programs, you may need to increase this number to include all your programs."
-            input("prefProgramMaxID", "number", title: "Maximum program ID number", description: "Max program ID. Increase if you have newer programs not being detected.", defaultValue: 30)
+            // paragraph "This app has to 'scan' for programs. By default, it scans from ID 1-30. If you have deleted/created more than 30 programs, you may need to increase this number to include all your programs."
+            // No longer needed - using /program endpoint
+            // input("prefProgramMaxID", "number", title: "Maximum program ID number", description: "Max program ID. Increase if you have newer programs not being detected.", defaultValue: 30)
+            input (
+            	name: "configLoggingLevelIDE",
+            	title: "IDE Live Logging Level:\nMessages with this level and higher will be logged to the IDE.",
+            	type: "enum",
+            	options: [
+            	    "None",
+            	    "Error",
+            	    "Warning",
+            	    "Info",
+            	    "Debug",
+            	    "Trace"
+            	],
+            	required: false
+            )
         }
 	}
 }
@@ -158,26 +174,12 @@ def prefLogInWait() {
     if (atomicState.loginResponse == "Success"){
 		atomicState.ProgramData = [:]
         getZonesAndPrograms()
-
-        //Wait up to 10 seconds for login response
-        i = 0
-        while (i < 5){
-            pause(2000)
-            if (atomicState.zonesResponse == "Success" && atomicState.programsResponseCount == prefProgramMaxID ){
-                log.debug "Got a zone response! Let's go!"
-                i = 5
-            }
-            i++
-        }
-
-        log.debug "Done waiting on zones/programs. zone response: " + atomicState.zonesResponse + " programs response: " + atomicState.programsResponse
-
         return dynamicPage(name: "prefListProgramsZones",  title: "Programs/Zones", nextPage:"summary", install:false, uninstall:true) {
             section("Select which programs to use"){
-                input(name: "programs", type: "enum", required:false, multiple:true, metadata:[values:atomicState.ProgramList])
+                input(name: "programs", type: "enum", required:false, multiple:true, options: atomicState.ProgramList)
             }
-            section("Select which zones to use"){
-                input(name: "zones", type: "enum", required:false, multiple:true, metadata:[values:atomicState.ZoneList])
+            section("Select which zones to use"){                
+                input(name: "zones", type: "enum", required:false, multiple:true, options: atomicState.ZoneList)
             }
             section("Name Re-Sync") {
         		input "prefResyncNames", "bool", required: false, title: "Re-sync names with RainMachine?"
@@ -206,33 +208,6 @@ def summary() {
             paragraph state.versionWarning
 		}
     }
-}
-
-
-def parseLoginResponse(response){
-
-    log.debug "Parsing login response: " + response
-    log.debug "Reset login info!"
-    atomicState.access_token = ""
-    atomicState.expires_in = ""
-
-    atomicState.loginResponse = 'Received'
-
-    if (response.statusCode == 2){
-    	atomicState.loginResponse = 'Bad Login'
-    }
-
-    log.debug "new token found: "  + response.access_token
-    if (response.access_token != null){
-    	log.debug "Saving token"
-        atomicState.access_token = response.access_token
-        log.debug "Login token newly set to: " + atomicState.access_token
-        if (response.expires_in != null && response.expires_in != [] && response.expires_in != "")
-        	atomicState.expires_in = now() + response.expires_in
-    }
-	atomicState.loginResponse = 'Success'
-    log.debug "Login response set to: " + atomicState.loginResponse
-    log.debug "Login token was set to: " + atomicState.access_token
 }
 
 
@@ -295,14 +270,7 @@ def parse(evt) {
             return 1
         }
 
-        //Zone response
-        if (result.zones){
-        	//log.debug "Zone response detected!"
-            //log.debug "zone result: " + result
-        	getZoneList(result.zones)
-        }
-
-        //Program response
+         //Program response
         if (result.uid || (result.statusCode == 5 && result.message == "Not found !")){
         	//log.debug "Program response detected!"
             getProgram(result)
@@ -339,7 +307,7 @@ def parse(evt) {
         atomicState.loginResponse = 'Bad Login'
     }
     else if (status != 411 && body != null){
-    	//log.debug "Unexpected response! " + status + " " + body + "evt " + description
+    	log.debug "Unexpected response! " + status + " " + body + "evt " + description
     }
 
 
@@ -348,42 +316,166 @@ def parse(evt) {
 
 def doLogin(){
 	atomicState.loginResponse = null
-    return doCallout("POST", "/api/4/auth/login", "{\"pwd\": \"" + password + "\",\"remember\": 1 }")
+    def urlPath = "/api/4/auth/login"    
+    def calloutBody = ["pwd":password, "remember": 1 ]
+    def params = [
+        uri: "https://" + ip_address + ":" + port,
+        path: urlPath,
+        requestContentType: 'application/json',            
+        contentType: 'application/json',            
+        ignoreSSLIssues: true,
+        body: calloutBody
+    ]        
+    logger("send Post - " + params, "debug")
+    httpPostJson(params) { response ->
+        logger("loginHandler called", "debug")
+        logger("loginHandler Status-" + response.status, "debug")
+        if (response.getStatus() == 200) {
+            def result = response.getData()    
+            if (result.access_token != null && result.access_token != "" && result.access_token != []){
+                log.debug "Login response detected!"
+                log.debug "Login response result: " + result
+                parseLoginResponse(result)
+            }
+        } else {
+            logger("loginHandler Error(" + response.status + ") " + response.getData(), "error")
+        }
+    }  
 }
+
+def parseLoginResponse(result){
+
+    logger("Parsing login response: " + result, 'debug')
+    logger("Reset login info!", 'trace')
+    atomicState.access_token = ""
+    atomicState.expires_in = ""
+
+    atomicState.loginResponse = 'Received'
+
+    if (result.statusCode == 2){
+    	atomicState.loginResponse = 'Bad Login'
+    }
+
+    logger("new token found: "  + result.access_token, "debug")
+    if (result.access_token != null){
+    	log.debug "Saving token"
+        atomicState.access_token = result.access_token
+        logger("Login token newly set to: " + atomicState.access_token, "debug")
+        if (result.expires_in != null && result.expires_in != [] && result.expires_in != "")
+        	atomicState.expires_in = now() + result.expires_in
+    }
+	atomicState.loginResponse = 'Success'
+    logger("Login response set to: " + atomicState.loginResponse, "debug")
+    logger("Login token was set to: " + atomicState.access_token, "debug")
+}
+
 
 def getZonesAndPrograms(){
 	atomicState.zonesResponse = null
     atomicState.programsResponse = null
     atomicState.programsResponseCount = 0
-    log.debug "Getting zones and programs using token: " + atomicState.access_token
-    doCallout("GET", "/api/4/zone?access_token=" + atomicState.access_token , "")
-
-    //If we already have the list of valid programs, limit the refresh to those
-    if (atomicState.ProgramData){
-    	log.debug "checking existing program data"
-    	def programData = atomicState.ProgramData
-
-        programData.each { dni, program ->
-            //Only refresh if child device exists
-            if (getChildDevice(dni)){
-            	doCallout("GET", "/api/4/program/" + program.uid + "?access_token=" + atomicState.access_token , "")
-            }
+    logger("Getting zones and programs using token: " + atomicState.access_token, "debug")
+    httpGet([uri: "https://" + ip_address + ":" + port,path: "/api/4/zone", query: ["access_token":atomicState.access_token],
+            requestContentType: 'application/json',contentType: 'application/json',ignoreSSLIssues: true]) { response -> 
+         if (response.status == 200) {
+            //log.debug "Zone response detected!"
+            logger("zone result: " + response.data , "debug")
+        	getZoneList(response.data.zones)
+        } else {
+            logger("Failed to get /Zone : " + response.data, "error")
         }
     }
-
-    //Otherwise, we need to basically "scan" for programs starting at 0 and going up to X
-    else{
-    	for (int i = 1; i <= prefProgramMaxID; i++){
-    		doCallout("GET", "/api/4/program/" + i + "?access_token=" + atomicState.access_token , "")
-    	}
-    }
+    getPrograms()
 }
 
+// Process all the zones you have in RainMachine
+def getZoneList(zones) {
+	atomicState.ZoneData = [:]
+    def tempList = [:]
+    def zonesList = [:]
+    zones.each { zone ->
+        def dni = [ app.id, "zone", zone.uid ].join('|')
+        def endTime = now() + ((zone.remaining?:0) * 1000)
+        zonesList[dni] = zone.name
+        tempList[dni] = [
+            status: zone.state,
+            endTime: endTime,
+            lastRefresh: now()
+        ]
+        //log.debug "Zone: " + dni + "   Status : " + tempList[dni]
+    }
+	atomicState.ZoneList = zonesList
+    atomicState.ZoneData = tempList
+    logger("Temp zone list: " + zonesList, "trace")
+    logger("State zone list: " + atomicState.ZoneList, "trace")
+    atomicState.zonesResponse = "Success"
+}
+
+def getPrograms() {
+   httpGet([uri: "https://" + ip_address + ":" + port,path: "/api/4/program", query: ["access_token":atomicState.access_token],
+            requestContentType: 'application/json',contentType: 'application/json',ignoreSSLIssues: true]) { response -> 
+         if (response.status == 200) {
+            logger("Program response received","info")
+            logger("Program result: " + response.data , "trace")
+             response.data.programs.each { program ->
+                 getProgram(program)
+             }
+             atomicState.programsResponse = "Success"
+        } else {
+            logger("Failed to get /Program : " + response.data, "error")
+        }
+   }
+}
+
+       // Process each programs you have in RainMachine
+def getProgram(program) {
+    //log.debug ("Processing pgm" + program)
+
+    //If no UID, this basically means an "empty" program slot where one was deleted from the RM device. Increment count and continue
+    if (!program.uid){
+    	atomicState.programsResponseCount = atomicState.programsResponseCount + 1
+    	//log.debug("new program response count: " + atomicState.programsResponseCount)
+        return
+    }
+
+    //log.debug ("PgmUID " + program.uid)
+
+
+    def dni = [ app.id, "prog", program.uid ].join('|')
+
+    def programsList = atomicState.ProgramList
+	programsList[dni] = program.name
+    atomicState.ProgramList = programsList
+
+
+    def endTime = 0 //TODO: calculate time left for the program
+
+    def myObj =
+     [
+                uid: program.uid,
+                status: program.status,
+                endTime: endTime,
+                lastRefresh: now(),
+                program: program
+	]
+
+    def programData = atomicState.ProgramData
+    programData[dni] = myObj
+    atomicState.ProgramData = programData
+
+    atomicState.programsResponseCount = atomicState.programsResponseCount + 1
+
+}
+
+
+    
+    
 /* Initialization */
 def installed() {
 	log.info  "installed()"
 	log.debug "Installed with settings: " + settings
-    //unschedule()
+    getHubPlatform()
+    state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE : 'Debug'
 }
 
 def updated() {
@@ -396,9 +488,7 @@ def updated() {
     if (state.previousVersion != state.thisSmartAppVersion){
     	getVersionInfo(state.previousVersion, state.thisSmartAppVersion);
     }
-    //unschedule()
-	//unsubscribe()
-	//initialize()
+    state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE : 'Debug'    
 }
 
 def uninstalled() {
@@ -477,7 +567,7 @@ def initialize() {
                 childDevice = addChildDevice("brbeaird", "RainMachine", dni, null, childDeviceAttrib)
                 state.installMsg = state.installMsg + deviceName + ": device created. \r\n\r\n"
             }
-            catch(physicalgraph.app.exception.UnknownDeviceTypeException e)
+            catch(e)
             {
                 log.debug "Error! " + e
                 state.installMsg = state.installMsg + deviceName + ": problem creating RM device. Check your IDE to make sure the brbeaird : RainMachine device handler is installed and published. \r\n\r\n"
@@ -551,90 +641,51 @@ public loginTokenExists(){
 }
 
 
-def doCallout(calloutMethod, urlPath, calloutBody){
+def doCallout(calloutMethod, urlPath, calloutBody, callback=null, data=null){
 	subscribe(location, null, parse, [filterEvents:false])
-    log.info  "Calling out to " + ip_address  + ":" + port + urlPath
-    //sendAlert("Calling out to " + ip_address + urlPath + " body: " + calloutBody)
+    logger("Calling out to " + ip_address  + ":" + port + urlPath, 'info')    
 
-    def httpRequest = [
-      	method: calloutMethod,
-    	path: urlPath,
-        headers:	[
+    if (state.isST) {
+      def hubAction = physicalgraph.device.HubAction.newInstance(
+            method: calloutMethod,
+            path: urlPath,
+            headers: [
         				HOST: ip_address + ":" + port,
                         "Content-Type": "application/json",
 						Accept: 	"*/*",
                     ],
-        body: calloutBody
-	]
-
-	def hubAction = new physicalgraph.device.HubAction(httpRequest)
-    //log.debug "hubaction: " + hubAction
-	return sendHubCommand(hubAction)
-}
-
-
-
-// Process each programs you have in RainMachine
-def getProgram(program) {
-    //log.debug ("Processing pgm" + program)
-
-    //If no UID, this basically means an "empty" program slot where one was deleted from the RM device. Increment count and continue
-    if (!program.uid){
-    	atomicState.programsResponseCount = atomicState.programsResponseCount + 1
-    	//log.debug("new program response count: " + atomicState.programsResponseCount)
-        return
+            query: [],
+            calloutBody,
+            [callback: callback]
+        )
+      try {
+        sendHubCommand(hubAction)
+        } catch (Exception e) {
+        	if (debug) log.error "doCallout - sendHubCommand Exception ${e} on ${hubAction}"
+        }
+    } else {
+        def params = [
+            uri: "https://" + ip_address + ":" + port,
+            path: urlPath,
+            requestContentType: 'application/json',            
+            contentType: 'application/json',            
+            query: [],
+            ignoreSSLIssues: true,
+            body: calloutBody
+           ]
+        if (calloutMethod == 'POST') {
+            logger("send Post - " + params + "\n-----Callback to - " + callback + "\n----Data=" + data, "debug")
+            asynchttpPost(callback, params, data)
+        } else if (calloutMethod == 'GET') {
+            asynchttpGet(callback, params, data)
+        }
     }
-
-    //log.debug ("PgmUID " + program.uid)
-
-
-    def dni = [ app.id, "prog", program.uid ].join('|')
-
-    def programsList = atomicState.ProgramList
-	programsList[dni] = program.name
-    atomicState.ProgramList = programsList
-
-
-    def endTime = 0 //TODO: calculate time left for the program
-
-    def myObj =
-     [
-                uid: program.uid,
-                status: program.status,
-                endTime: endTime,
-                lastRefresh: now()
-	]
-
-    def programData = atomicState.ProgramData
-    programData[dni] = myObj
-    atomicState.ProgramData = programData
-
-    atomicState.programsResponseCount = atomicState.programsResponseCount + 1
-
+   
 }
 
-// Process all the zones you have in RainMachine
-def getZoneList(zones) {
-	atomicState.ZoneData = [:]
-    def tempList = [:]
-    def zonesList = [:]
-    zones.each { zone ->
-        def dni = [ app.id, "zone", zone.uid ].join('|')
-        def endTime = now + ((zone.remaining?:0) * 1000)
-        zonesList[dni] = zone.name
-        tempList[dni] = [
-            status: zone.state,
-            endTime: endTime,
-            lastRefresh: now()
-        ]
-        //log.debug "Zone: " + dni + "   Status : " + tempList[dni]
-    }
-	atomicState.ZoneList = zonesList
-    atomicState.ZoneData = tempList
-    //log.debug "Temp zone list: " + zonesList
-    //log.debug "State zone list: " + atomicState.ZoneList
-    atomicState.zonesResponse = "Success"
-}
+
+
+
 
 // Updates devices
 def updateDeviceData() {
@@ -741,13 +792,13 @@ def refresh() {
 
         if (atomicState.zonesResponse == null){
     		sendAlert("Unable to get zone data while trying to refresh")
-            log.debug "Unable to get zone data while trying to refresh"
+            logger("Unable to get zone data while trying to refresh", "error")
             return false
     	}
 
         if (atomicState.programsResponse == null){
     		sendAlert("Unable to get program data while trying to refresh")
-            log.debug "Unable to get program data while trying to refresh"
+            logger("Unable to get program data while trying to refresh", "error")
             return false
     	}
 
@@ -826,33 +877,57 @@ def sendCommand2(child, apiCommand, apiTime) {
 
         def childUID = getChildUID(child)
 		def childType = getChildType(child)
-        def apiPath = "/api/4/" + childType + "/" + childUID + "/" + apiCommand + "?access_token=" + atomicState.access_token
-        //doCallout("GET", "/api/4/zone?access_token=" + atomicState.access_token , "")
+        def apiPath = "/api/4/" + childType + "/" + childUID + "/" + apiCommand
+        def params = [
+                uri: "https://" + ip_address + ":" + port,
+                query: ["access_token":atomicState.access_token],
+                path: apiPath,
+                requestContentType: 'application/json',            
+                contentType: 'application/json',            
+                ignoreSSLIssues: true,
+                body: []
+            ]        
 
         //Stop Everything
         if (apiCommand == "stopall") {
-        	apiPath = "/api/4/watering/stopall"+ "?access_token=" + atomicState.access_token
-            doCallout("POST", apiPath, "{\"all\":"  + "\"true\"" + "}")
+        	params.path = "/api/4/watering/stopall"
         }
         //Zones will require time
         else if (childType == "zone") {
-            doCallout("POST", apiPath, "{\"time\":"  + apiTime + "}")
+            params.body = [ time: apiTime ]
         }
 
         //Programs will require pid
         else if (childType == "program") {
-            doCallout("POST", apiPath, "{\"pid\":"  + childUID + "}")
+            params.body = [pid : childUID ]
         }
-
-        //Forcefully get the latest data after waiting for 5 seconds
-        //pause(8000)
-        runIn(15, refresh)
-        //refresh()
+        else {
+            logger("Unexpected condition in sendCommand2 - " + childType + " -- " + apiCommand, "error")
+        }
+     
+        
+        logger("SendCommand2 - " + params, "debug")
+        try {
+            httpPostJson(params) { response ->
+                if (response.getStatus() == 200) {
+                    logger("Completed command - " + apiCommand, "info")
+                } 
+                else {
+                    logger("Error in command - " + apiCommand,"error")
+                    logger("Error detail " + response.data,"error")
+                }
+            }
+        } 
+        catch (e) {
+            logger("Command failed to execute - " + e, "error")
+        }
+        //Forcefully get the latest data after waiting for 15 seconds
+        runIn(15, refresh)        
     }
 
     //If not, get a new token then refresh
     else{
-    	log.debug "Need new token"
+    	 logger("Need new token", "debug")
     	doLogin()
 
         //Wait up to 20 seconds for successful login
@@ -860,28 +935,28 @@ def sendCommand2(child, apiCommand, apiTime) {
         while (i < 5){
             pause(2000)
             if (atomicState.loginResponse != null){
-                log.debug "Got a response! Let's go!"
+                 logger("Got a response! Let's go!", "debug")
                 i = 5
             }
             i++
         }
-        log.debug "Done waiting." + "Current login response: " + atomicState.loginResponse
+        logger("Done waiting." + "Current login response: " + atomicState.loginResponse, "debug")
 
 
         if (atomicState.loginResponse == null){
-    		log.debug "Unable to connect while trying to refresh zone/program data"
+    		 logger("Unable to connect while trying to refresh zone/program data", "debug")
             return false
     	}
 
 
         if (atomicState.loginResponse == "Bad Login"){
-            log.debug "Bad Login while trying to refresh zone/program data"
+             logger("Bad Login while trying to refresh zone/program data", "debug")
             return false
         }
 
 
         if (atomicState.loginResponse == "Success"){
-            log.debug "Got a login response for sending command! Let's go!"
+             logger("Got a login response for sending command! Let's go!", "debug")
             sendCommand2(child, apiCommand, apiTime)
     	}
 
@@ -939,10 +1014,17 @@ def getVersionInfo(oldVersion, newVersion){
         uri:  'http://www.fantasyaftermath.com/getVersion/rm/' +  oldVersion + '/' + newVersion,
         contentType: 'application/json'
     ]
-    asynchttp_v1.get('responseHandlerMethod', params)
+    
+    if (state.isST) {
+        include 'asynchttp_v1'
+        asynchttp_v1.get('versionInfoHandler', params)
+    } 
+    else {
+        asynchttpGet( 'versionInfoHandler', params )
+    }
 }
 
-def responseHandlerMethod(response, data) {
+def versionInfoHandler(response, data) {
     if (response.hasError()) {
         log.error "response has error: $response.errorMessage"
     } else {
@@ -951,10 +1033,10 @@ def responseHandlerMethod(response, data) {
         state.latestDeviceVersion = results.DoorDevice;
     }
 
-    log.debug "previousVersion: " + state.previousVersion
-    log.debug "installedVersion: " + state.thisSmartAppVersion
-    log.debug "latestVersion: " + state.latestSmartAppVersion
-    log.debug "deviceVersion: " + state.latestDeviceVersion
+    logger("previousVersion: " + state.previousVersion, 'debug')
+    logger("installedVersion: " + state.thisSmartAppVersion, 'debug')
+    logger("latestVersion: " + state.latestSmartAppVersion, 'debug')
+    logger("deviceVersion: " + state.latestDeviceVersion, 'debug')
 }
 
 
@@ -982,3 +1064,78 @@ def versionCheck(){
 
     log.debug state.versionWarning
 }
+
+
+//*******************************************************
+//*  logger()
+//*
+//*  Wrapper function for all logging.
+//*******************************************************
+
+private logger(msg, level = "debug") {
+
+    def lookup = [
+        	    "None" : 0,
+        	    "Error" : 1,
+        	    "Warning" : 2,
+        	    "Info" : 3,
+        	    "Debug" : 4,
+        	    "Trace" : 5]
+     def logLevel = lookup[state.loggingLevelIDE ? state.loggingLevelIDE : 'Debug']     
+
+    switch(level) {
+        case "error":
+            if (logLevel >= 1) log.error msg
+            break
+
+        case "warn":
+            if (logLevel >= 2) log.warn msg
+            break
+
+        case "info":
+            if (logLevel >= 3) log.info msg
+            break
+
+        case "debug":
+            if (logLevel >= 4) log.debug msg
+            break
+
+        case "trace":
+            if (logLevel >= 5) log.trace msg
+            break
+
+        default:
+            log.debug msg
+            break
+    }
+}
+
+
+// **************************************************************************************************************************
+// SmartThings/Hubitat Portability Library (SHPL)
+// Copyright (c) 2019, Barry A. Burke (storageanarchy@gmail.com)
+//
+// The following 3 calls are safe to use anywhere within a Device Handler or Application
+//  - these can be called (e.g., if (getPlatform() == 'SmartThings'), or referenced (i.e., if (platform == 'Hubitat') )
+//  - performance of the non-native platform is horrendous, so it is best to use these only in the metadata{} section of a
+//    Device Handler or Application
+//
+private String  getPlatform() { (physicalgraph?.device?.HubAction ? 'SmartThings' : 'Hubitat') }	// if (platform == 'SmartThings') ...
+private Boolean getIsST()     { (physicalgraph?.device?.HubAction ? true : false) }					// if (isST) ...
+private Boolean getIsHE()     { (hubitat?.device?.HubAction ? true : false) }						// if (isHE) ...
+//
+// The following 3 calls are ONLY for use within the Device Handler or Application runtime
+//  - they will throw an error at compile time if used within metadata, usually complaining that "state" is not defined
+//  - getHubPlatform() ***MUST*** be called from the installed() method, then use "state.hubPlatform" elsewhere
+//  - "if (state.isST)" is more efficient than "if (isSTHub)"
+//
+private String getHubPlatform() {
+    if (state?.hubPlatform == null) {
+        state.hubPlatform = getPlatform()						// if (hubPlatform == 'Hubitat') ... or if (state.hubPlatform == 'SmartThings')...
+        state.isST = state.hubPlatform.startsWith('S')			// if (state.isST) ...
+        state.isHE = state.hubPlatform.startsWith('H')			// if (state.isHE) ...
+    }
+    return state.hubPlatform
+}
+private Boolean getIsSTHub() { (state.isST) }					// if (isSTHub) ...
+private Boolean getIsHEHub() { (state.isHE) }
