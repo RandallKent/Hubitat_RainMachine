@@ -1,9 +1,10 @@
-SmartThings RainMachine
+Hubitat RainMachine
 =======================
+Provides an integration between the Rain Machine Irrigation Controller and Hubitat. After installation, each zone valve can be controlled from Hubitat as well as each program. Includes a polling-based mechanism to update the current status of the sprinkler controller within Hubitat. 
 
-<a href="http://www.amazon.com/gp/product/B00FWYESVQ/ref=as_li_tl?ie=UTF8&camp=1789&creative=390957&creativeASIN=B00FWYESVQ&linkCode=as2&tag=githubcoderep-20&linkId=OJXHE5KG3FSYW5ZA">
-<img border="0" src="http://ws-na.amazon-adsystem.com/widgets/q?_encoding=UTF8&ASIN=B00FWYESVQ&Format=_SL110_&ID=AsinImage&MarketPlace=US&ServiceVersion=20070822&WS=1&tag=githubcoderep-20" ></a>
-<img src="http://ir-na.amazon-adsystem.com/e/ir?t=githubcoderep-20&l=as2&o=1&a=B00FWYESVQ" width="1" height="1" border="0" alt="" style="border:none !important; margin:0px !important;" /> 
+<a href="https://www.amazon.com/Hubitat-Elevation-Home-Automation-Hub/dp/B07D19VVTX">
+<img border="0" width="100" src="https://community.hubitat.com/uploads/default/optimized/2X/5/5d5a34d66ecef2a6b842247822fe1378d912a03a_2_1035x579.jpeg" ></a>
+</a>
 <a href="http://www.amazon.com/gp/product/B00CT5PNBU/ref=as_li_tl?ie=UTF8&camp=1789&creative=390957&creativeASIN=B00CT5PNBU&linkCode=as2&tag=githubcoderep-20&linkId=TMHCNV23OPPKUPDV">
 <img border="0" src="http://ws-na.amazon-adsystem.com/widgets/q?_encoding=UTF8&ASIN=B00CT5PNBU&Format=_SL110_&ID=AsinImage&MarketPlace=US&ServiceVersion=20070822&WS=1&tag=githubcoderep-20" ></a>
 <img src="http://ir-na.amazon-adsystem.com/e/ir?t=githubcoderep-20&l=as2&o=1&a=B00CT5PNBU" width="1" height="1" border="0" alt="" style="border:none !important; margin:0px !important;" />
@@ -12,13 +13,15 @@ SmartThings RainMachine
 <img src="http://i.imgur.com/c4QHSUKs.jpg" width="1" height="1" border="0" alt="" style="border:none !important; margin:0px !important;" />
 
 
-For [prerequisites](https://github.com/brbeaird/SmartThings_RainMachine/wiki/Prerequisite) & [installation](https://github.com/brbeaird/SmartThings_RainMachine/wiki/Installation)  please refer to [wiki]( https://github.com/brbeaird/SmartThings_RainMachine/wiki)
+Check these [prerequisites](https://github.com/brbeaird/SmartThings_RainMachine/wiki/Prerequisite).
 
+### Installation:
 
-### Donate:
+1. Use the [Hubitat Package Manager](https://community.hubitat.com/t/beta-hubitat-package-manager/38016) to add the code.
+2. Add the new User App and configure it for your device. 
+3. You will need to know the local IP address for your Rainmachine. This can be obtained from the device looking at Network settings, via your router, or by looking at the RainMachine App.
 
-If you love this app, feel free to donate.
+### Shout Out:
 
-[![PayPal - The safer, easier way to give online!](https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif "Donate")](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=GJJA2ZYNWKS6Y)
+Thanks to BRBeaird for the original [SmartThings code](https://github.com/brbeaird/SmartThings_RainMachine) which was ported to Hubitat.
  
-
