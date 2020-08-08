@@ -7,7 +7,7 @@
  *
  *  Author: Jason Mok/Brian Beaird
  *      Ported to Hubitat 2020 Brad Sileo
- *  Last Updated: 2020-07-29
+ *  Last Updated: 2020-08-04
  *
  ***************************
  *
@@ -52,12 +52,7 @@ preferences {
 
 /* Preferences */
 def prefLogIn() {
-	state.previousVersion = state.thisSmartAppVersion
-    if (state.previousVersion == null){
-    	state.previousVersion = 0;
-    }
-    state.thisSmartAppVersion = "3.0.1"
-
+	
     //RESET ALL THE THINGS
     atomicState.initialLogin = false
     atomicState.loginResponse = null
@@ -132,8 +127,7 @@ def prefUninstall() {
 }
 
 def prefLogInWait() {
-    getVersionInfo(0, 0);
-    log.debug "Logging in...waiting..." + "Current login response: " + atomicState.loginResponse
+    logger("Logging in...waiting..." + "Current login response: " + atomicState.loginResponse, "debug")
 
     doLogin()
 
@@ -142,17 +136,17 @@ def prefLogInWait() {
     while (i < 5){
     	pause(2000)
         if (atomicState.loginResponse != null){
-        	log.debug "Got a login response! Let's go!"
+        	logger("Got a login response! Let's go!", "debug")
             i = 5
         }
         i++
     }
 
-    log.debug "Done waiting." + "Current login response: " + atomicState.loginResponse
+    logger("Done waiting." + "Current login response: " + atomicState.loginResponse, "debug")
 
     //Connection issue
     if (atomicState.loginResponse == null){
-    	log.debug "Unable to connect"
+    	logger("Unable to connect", "error")
 		return dynamicPage(name: "prefLogInWait", title: "Log In", uninstall:false, install: false) {
             section() {
                 paragraph "Unable to connect to Rainmachine. Check your local IP and try again"
@@ -162,7 +156,7 @@ def prefLogInWait() {
 
     //Bad login credentials
     if (atomicState.loginResponse == "Bad Login"){
-    	log.debug "Bad Login show on form"
+    	logger("Bad Login credentials", "error")
 		return dynamicPage(name: "prefLogInWait", title: "Log In", uninstall:false, install: false) {
             section() {
                 paragraph "Bad username/password. Click back and try again."
@@ -201,22 +195,22 @@ def prefLogInWait() {
 def summary() {
 	state.installMsg = ""
     initialize()
-    versionCheck()
     return dynamicPage(name: "summary",  title: "Summary", install:true, uninstall:true) {
         section("Installation Details:"){
 			paragraph state.installMsg
-            paragraph state.versionWarning
 		}
     }
 }
 
 
+// Note Parse is not used by calls here we use direct callbacks from HTTP requests on Hubitat
+// leaving it in place for now in case this is used to return to some ST compatibility in the future.
 def parse(evt) {
 
     def description = evt.description
     def hub = evt?.hubId
 
-    //log.debug "desc: " + evt.description
+    logger("PARSE-desc: " + evt.description, "trace")
     def msg
     try{
             msg = parseLanMessage(evt.description)
@@ -335,10 +329,11 @@ def doLogin(){
             if (result.access_token != null && result.access_token != "" && result.access_token != []){
                 log.debug "Login response detected!"
                 log.debug "Login response result: " + result
-                parseLoginResponse(result)
+                return parseLoginResponse(result)
             }
         } else {
             logger("loginHandler Error(" + response.status + ") " + response.getData(), "error")
+            return false
         }
     }  
 }
@@ -352,21 +347,24 @@ def parseLoginResponse(result){
 
     atomicState.loginResponse = 'Received'
 
-    if (result.statusCode == 2){
+    if (result.statusCode == 2) {
     	atomicState.loginResponse = 'Bad Login'
     }
-
-    logger("new token found: "  + result.access_token, "debug")
-    if (result.access_token != null){
-    	log.debug "Saving token"
-        atomicState.access_token = result.access_token
-        logger("Login token newly set to: " + atomicState.access_token, "debug")
-        if (result.expires_in != null && result.expires_in != [] && result.expires_in != "")
-        	atomicState.expires_in = now() + result.expires_in
+    
+    else {
+        logger("new token found: "  + result.access_token, "debug")
+        if (result.access_token != null) {
+            log.debug "Saving token"
+            atomicState.access_token = result.access_token
+            logger("Login token newly set to: " + atomicState.access_token, "debug")
+            if (result.expires_in != null && result.expires_in != [] && result.expires_in != "")
+            atomicState.expires_in = now() + result.expires_in
+        }
+        atomicState.loginResponse = 'Success'
+        logger("Login response set to: " + atomicState.loginResponse, "debug")
+        logger("Login token was set to: " + atomicState.access_token, "debug")
+        return true
     }
-	atomicState.loginResponse = 'Success'
-    logger("Login response set to: " + atomicState.loginResponse, "debug")
-    logger("Login token was set to: " + atomicState.access_token, "debug")
 }
 
 
@@ -485,16 +483,12 @@ def updated() {
 		last: now(),
 		runNow: true
 	]
-    if (state.previousVersion != state.thisSmartAppVersion){
-    	getVersionInfo(state.previousVersion, state.thisSmartAppVersion);
-    }
     state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE : 'Debug'    
 }
 
 def uninstalled() {
 	def delete = getAllChildDevices()
 	delete.each { deleteChildDevice(it.deviceNetworkId) }
-    getVersionInfo(state.previousVersion, 0);
 }
 
 
@@ -545,14 +539,17 @@ def initialize() {
 	selectedItems.each { dni ->
     	def deviceType = ""
         def deviceName = ""
+        def deviceClass = ""
         if (dni.contains("prog")) {
         	log.debug "Program found - " + dni
             deviceType = "Pgm"
             deviceName = programList[dni]
+            deviceClass = "RainMachine Program"
         } else if (dni.contains("zone")) {
         	log.debug "Zone found - " + dni
             deviceType = "Zone"
             deviceName = zoneList[dni]
+            deviceClass = "RainMachine Zone"
         }
         log.debug "devType: " + deviceType
 
@@ -560,11 +557,11 @@ def initialize() {
 		def childDeviceAttrib = [:]
 		if (!childDevice){
 			def fullName = deviceName
-            log.debug "name will be: " + fullName
+            logger("name will be: " + fullName, "debug")
             childDeviceAttrib = ["name": fullName, "completedSetup": true]
 
             try{
-                childDevice = addChildDevice("bsileo", "RainMachine", dni, null, childDeviceAttrib)
+                childDevice = addChildDevice("bsileo", deviceClass, dni, null, childDeviceAttrib)
                 state.installMsg = state.installMsg + deviceName + ": device created. \r\n\r\n"
             }
             catch(e)
@@ -614,20 +611,18 @@ def initialize() {
 
     // Schedule polling
 	schedulePoll()
-
-    versionCheck()
 }
 
 
 /* Access Management */
 public loginTokenExists(){
 	try {
-        log.debug "Checking for token: "
-        log.debug "Current token: " + atomicState.access_token
-        log.debug "Current expires_in: " + atomicState.expires_in
+        logger("Checking for token: ", "debug")
+        logger("Current token: " + atomicState.access_token, "debug")
+        logger("Current expires_in: " + atomicState.expires_in, "debug")
 
         if (atomicState.expires_in == null || atomicState.expires_in == ""){
-            log.debug "No expires_in found - skip to getting a new token."
+            logger("No expires_in found - skip to getting a new token.", "debug")
             return false
         }
         else
@@ -635,69 +630,23 @@ public loginTokenExists(){
     }
     catch (e)
     {
-      log.debug "Warning: unable to compare old expires_in - forcing new token instead. Error: " + e
+      logger("Warning: unable to compare old expires_in - forcing new token instead. Error: " + e, "debug")
       return false
     }
 }
 
 
-def doCallout(calloutMethod, urlPath, calloutBody, callback=null, data=null){
-	subscribe(location, null, parse, [filterEvents:false])
-    logger("Calling out to " + ip_address  + ":" + port + urlPath, 'info')    
-
-    if (state.isST) {
-      def hubAction = physicalgraph.device.HubAction.newInstance(
-            method: calloutMethod,
-            path: urlPath,
-            headers: [
-        				HOST: ip_address + ":" + port,
-                        "Content-Type": "application/json",
-						Accept: 	"*/*",
-                    ],
-            query: [],
-            calloutBody,
-            [callback: callback]
-        )
-      try {
-        sendHubCommand(hubAction)
-        } catch (Exception e) {
-        	if (debug) log.error "doCallout - sendHubCommand Exception ${e} on ${hubAction}"
-        }
-    } else {
-        def params = [
-            uri: "https://" + ip_address + ":" + port,
-            path: urlPath,
-            requestContentType: 'application/json',            
-            contentType: 'application/json',            
-            query: [],
-            ignoreSSLIssues: true,
-            body: calloutBody
-           ]
-        if (calloutMethod == 'POST') {
-            logger("send Post - " + params + "\n-----Callback to - " + callback + "\n----Data=" + data, "debug")
-            asynchttpPost(callback, params, data)
-        } else if (calloutMethod == 'GET') {
-            asynchttpGet(callback, params, data)
-        }
-    }
-   
-}
-
-
-
-
-
 // Updates devices
 def updateDeviceData() {
-	log.info "updateDeviceData()"
+	logger("updateDeviceData()", "trace")
 	// automatically checks if the token has expired, if so login again
     if (login()) {
         // Next polling time, defined in settings
         def next = (atomicState.polling.last?:0) + ( (settings.polling.toInteger() > 0 ? settings.polling.toInteger() : 1)  * 60 * 1000)
-        log.debug "last: " + atomicState.polling.last
-        log.debug "now: " + new Date( now() * 1000 )
-        log.debug "next: " + next
-        log.debug "RunNow: " + atomicState.polling.runNow
+        logger("last: " + atomicState.polling.last, "debug")
+        logger("now: " + new Date( now() * 1000 ), "debug")
+        logger("next: " + next, "debug")
+        logger("RunNow: " + atomicState.polling.runNow, "debug")
         if ((now() > next) || (atomicState.polling.runNow)) {
 
             // set polling states
@@ -760,7 +709,7 @@ def refresh() {
 		}
     }
 
-    log.info refreshProgramCount
+    logger("Processing " + refreshProgramCount + " programs","debug")
 
 	atomicState.polling = [
 		last: now(),
@@ -772,21 +721,21 @@ def refresh() {
 
     //If login token exists and is valid, reuse it and callout to refresh zone and program data
     if (loginTokenExists()){
-		log.debug "Existing token detected"
+		logger("Existing token detected", "debug")
         getZonesAndPrograms()
 
         //Wait up to 10 seconds before cascading results to child devices
         def i = 0
         while (i < 5){
             pause(2000)
-            if (atomicState.zonesResponse == "Success" && atomicState.programsResponseCount == refreshProgramCount ){
-                log.debug "Got a good RainMachine response! Let's go!"
+            if (atomicState.zonesResponse == "Success" && atomicState.programsResponseCount >= refreshProgramCount ){
+                logger("Got a good RainMachine response! Let's go!", "debug")
                 updateMapData()
                 pollAllChild()
                 //atomicState.expires_in = "" //TEMPORARY FOR TESTING TO FORCE RELOGIN
                 return true
             }
-            log.debug "Current zone response: " + atomicState.zonesResponse + "Current pgm response count: " + atomicState.programsResponseCount
+            logger("Current zone response: " + atomicState.zonesResponse + "Current pgm response count: " + atomicState.programsResponseCount + " of " +  refreshProgramCount, "debug")
             i++
         }
 
@@ -964,6 +913,47 @@ def sendCommand2(child, apiCommand, apiTime) {
 
 }
 
+// gets back a valid set of Paramas - URI and query - for a call to my controller.
+def getControllerParams() {
+	//If login token exists and is valid, reuse it and callout to refresh zone and program data
+    if (loginTokenExists()){
+		log.debug "Existing token detected for PARAMS"
+    
+        def params = [
+                uri: "https://" + ip_address + ":" + port,
+                query: ["access_token":atomicState.access_token],
+                requestContentType: 'application/json',            
+                contentType: 'application/json',            
+                ignoreSSLIssues: true,
+                path: "",
+                body: []
+            ]        
+        
+        return params       
+    }
+    //If not, get a new token then retry to get the Params
+    else{
+    	logger("Need new token", "debug")
+    	def login = doLogin()        
+        if (atomicState.loginResponse == null){
+    		 logger("Unable to connect while trying to refresh zone/program data", "debug")
+            return false
+    	}
+
+        if (atomicState.loginResponse == "Bad Login"){
+             logger("Bad Login while trying to refresh zone/program data", "debug")
+            return false
+        }
+
+        if (atomicState.loginResponse == "Success"){
+             logger("Got a login response for sending command! Let's go!", "debug")
+            return getControllerParams()
+    	}
+
+    }
+
+}
+
 def scheduledRefresh(){
     //If a command has been sent in the last 30 seconds, don't do the scheduled refresh.
     if (atomicState.lastCommandSent == null || atomicState.lastCommandSent < now()-30000){
@@ -1001,68 +991,8 @@ def sendAlert(alert){
 	//sendSms("555-555-5555", "Alert: " + alert)
 }
 
-
-def sendCommand3(child, apiCommand) {
-	pause(5000)
-    log.debug ("Setting child status to " + apiCommand)
-    child.updateDeviceStatus(apiCommand)
-}
-
-
-def getVersionInfo(oldVersion, newVersion){
-    def params = [
-        uri:  'http://www.fantasyaftermath.com/getVersion/rm/' +  oldVersion + '/' + newVersion,
-        contentType: 'application/json'
-    ]
-    
-    if (state.isST) {
-        include 'asynchttp_v1'
-        asynchttp_v1.get('versionInfoHandler', params)
-    } 
-    else {
-        asynchttpGet( 'versionInfoHandler', params )
-    }
-}
-
-def versionInfoHandler(response, data) {
-    if (response.hasError()) {
-        log.error "response has error: $response.errorMessage"
-    } else {
-        def results = response.json
-        state.latestSmartAppVersion = results.SmartApp;
-        state.latestDeviceVersion = results.DoorDevice;
-    }
-
-    logger("previousVersion: " + state.previousVersion, 'debug')
-    logger("installedVersion: " + state.thisSmartAppVersion, 'debug')
-    logger("latestVersion: " + state.latestSmartAppVersion, 'debug')
-    logger("deviceVersion: " + state.latestDeviceVersion, 'debug')
-}
-
-
-def versionCheck(){
-	state.versionWarning = ""
-    state.thisDeviceVersion = ""
-
-    def childExists = false
-    def childDevs = getChildDevices()
-
-    if (childDevs.size() > 0){
-    	childExists = true
-        state.thisDeviceVersion = childDevs[0].showVersion()
-        log.debug "child version found: " + state.thisDeviceVersion
-    }
-
-    log.debug "RM Device Handler Version: " + state.thisDeviceVersion
-
-    if (state.thisSmartAppVersion != state.latestSmartAppVersion) {
-    	state.versionWarning = state.versionWarning + "Your SmartApp version (" + state.thisSmartAppVersion + ") is not the latest version (" + state.latestSmartAppVersion + ")\n\n"
-	}
-	if (childExists && state.thisDeviceVersion != state.latestDeviceVersion) {
-    	state.versionWarning = state.versionWarning + "Your RainMachine device version (" + state.thisDeviceVersion + ") is not the latest version (" + state.latestDeviceVersion + ")\n\n"
-    }
-
-    log.debug state.versionWarning
+def showVersion(){
+	return "0.9.5"
 }
 
 
@@ -1071,6 +1001,17 @@ def versionCheck(){
 //*
 //*  Wrapper function for all logging.
 //*******************************************************
+
+def loggingLevel() {
+    def lookup = [
+        	    "None" : 0,
+        	    "Error" : 1,
+        	    "Warning" : 2,
+        	    "Info" : 3,
+        	    "Debug" : 4,
+        	    "Trace" : 5]
+     return lookup[state.loggingLevelIDE ? state.loggingLevelIDE : 'Debug']     
+}
 
 private logger(msg, level = "debug") {
 

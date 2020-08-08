@@ -3,6 +3,7 @@
   "author": "Brad sileo",
   "minimumHEVersion": "0.0",
   "dateReleased": "2020-08-02",
+  "releaseNotes":"Update to separate Program and Zone device\nRemove some of the async processing to simplify code with Hubitat",
   "apps": [
     {
       "id": "7760a272-85b7-40e7-99c3-1864df4f65f2",
@@ -11,7 +12,7 @@
       "location": "https://raw.githubusercontent.com/bsileo/Hubitat_RainMachine/master/smartapps/bsileo/rainmachine.src/rainmachine.groovy",
       "required": true,
       "oauth": false,
-      "version": "0.9.2"
+      "version": "0.9.6"
     }
   ],
   "drivers": [
@@ -19,9 +20,17 @@
       "id": "549c99fc-a017-4c0b-b3b5-297933171bfb",
       "name": "RainMachine",
       "namespace": "bsileo",
-      "location": "https://raw.githubusercontent.com/bsileo/Hubitat_RainMachine/master/devicetypes/bsileo/rainmachine.src/rainmachine.groovy",
+      "location": "https://raw.githubusercontent.com/bsileo/Hubitat_RainMachine/master/devicetypes/bsileo/rainmachine-zone.src/rainmachine-zone.groovy",
       "required": true,
-      "version": "0.9.2"
+      "version": "0.9.6"
+    },
+    {
+      "id": "674c260c-b0da-474b-b84a-cedf66b9bcfc",
+      "name": "RainMachine",
+      "namespace": "bsileo",
+      "location": "https://raw.githubusercontent.com/bsileo/hubitat_rainmachine/master/devicetypes/bsileo/rainmachine-program.src/rainmachine-program.groovy",
+      "required": true,
+      "version": "0.9.6"
     }
   ]
 }
