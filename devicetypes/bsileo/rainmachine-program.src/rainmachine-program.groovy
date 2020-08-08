@@ -56,7 +56,7 @@ metadata {
 
 // installation, set default value
 def installed() {
-	setRuneTime(5)    
+	setRunTime(5)    
 }
 
 def on() {
@@ -226,7 +226,7 @@ def deviceStatus(status) {
 }
 
 def showVersion(){
-	return "0.9.6"
+	return "0.9.7"
 }
 
 

@@ -30,7 +30,7 @@
       "namespace": "bsileo",
       "location": "https://raw.githubusercontent.com/bsileo/hubitat_rainmachine/master/devicetypes/bsileo/rainmachine-program.src/rainmachine-program.groovy",
       "required": true,
-      "version": "0.9.6"
+      "version": "0.9.7"
     }
   ]
 }
