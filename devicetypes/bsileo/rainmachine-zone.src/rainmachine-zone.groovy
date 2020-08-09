@@ -130,6 +130,11 @@ void setRunTime(runTimeSecs) {
 	sendEvent("name":"runTime", "value": runTimeSecs)
 }
 
+
+def updateDeviceLastRefresh(refreshDate){
+    updateDeviceLastRefresh()
+}
+
 def updateDeviceLastRefresh(){
     
     def refreshDate = new Date()
@@ -243,7 +248,7 @@ def deviceStatus(status) {
 }
 
 def showVersion(){
-	return "0.9.6"
+	return "0.9.7"
 }
 
 
