@@ -2,8 +2,8 @@
   "packageName": "Rain Machine",
   "author": "Brad sileo",
   "minimumHEVersion": "0.0",
-  "dateReleased": "2020-08-02",
-  "releaseNotes":"Bug fix in Zone code for last Refersh handling",
+  "dateReleased": "2020-08-10",
+  "releaseNotes":"Added Pause / Resume function\nAdded Water Now to Zones with duration setting",
   "apps": [
     {
       "id": "7760a272-85b7-40e7-99c3-1864df4f65f2",
@@ -22,7 +22,7 @@
       "namespace": "bsileo",
       "location": "https://raw.githubusercontent.com/bsileo/Hubitat_RainMachine/master/devicetypes/bsileo/rainmachine-zone.src/rainmachine-zone.groovy",
       "required": true,
-      "version": "0.9.7"
+      "version": "0.9.8"
     },
     {
       "id": "674c260c-b0da-474b-b84a-cedf66b9bcfc",

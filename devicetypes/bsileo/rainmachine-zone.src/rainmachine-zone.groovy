@@ -47,12 +47,16 @@ metadata {
         attribute "lastRefresh", "string"
         attribute "lastStarted", "string"
         attribute "deviceType", "string"
-
+        attribute "paused", "string"
+        
 		command "refresh"
         command "stopAll"
 	}
 
-     command "setRunTime", [[ name: "Run Time*", type: "NUMBER", description: "Set the runtime in minutes for the next run"]]     
+     command "setRunTime", [[ name: "Run Time*", type: "NUMBER", description: "Set the runtime in minutes for the next time I am manually Opened"]]     
+     command "waterForTime", [[ name: "Run Time*", type: "NUMBER", description: "Start watering now for this many minutes"]]     
+     command "pauseAll", [[ name: "Pause Time*", type: "NUMBER", description: "Pause water for this many seconds on All Zones"]]     
+     command "resumeAll"    
 }
 
 // installation, set default value
@@ -62,11 +66,13 @@ def installed() {
 
 
 // turn on sprinkler
-def open()  {
+def open(mins)  {
     log.debug "Turning the sprinkler on (valve)"
+    if (!mins) {
+        mins = device.currentValue("runTime")
+    }
     deviceStatus(1)
-    parent.sendCommand2(this, "start", (device.currentValue("runTime") * 60))
-    //parent.sendCommand3(this, 1)
+    parent.sendCommand2(this, "start", (mins * 60))    
 }
 // turn off sprinkler
 def close() {
@@ -82,6 +88,46 @@ def on() {
 def off() {
 	close()
 }
+
+def waterForTime(mins) {
+   open(mins)
+}
+
+
+def pauseAll(time) {
+    def params = parent.getControllerParams()
+    logger("Got Params for /pauseall " + time + "s -- " + params,"debug")
+    params.path =  "/api/4/watering/pauseall"
+    params.body = [duration: time ]
+    httpPost(params) { response -> 
+         if (response.status == 200) {            
+             def data = response.data
+            logger("PauseAll result: " + data , "debug")            
+            logger("PauseAll Completed code:" + data.message, "info")
+            refresh()
+        } else {
+            logger("Failed to execute /pauseall: " + response.data, "error")
+        }
+    }
+}
+
+def resumeAll() {
+    def params = parent.getControllerParams()
+    logger("Got Params for /pauseall " + time + "s -- " + params,"debug")
+    params.path =  "/api/4/watering/pauseall"
+    params.body = [duration: 0 ] // A time of Zero signals a resume
+    httpPost(params) { response -> 
+         if (response.status == 200) {            
+             def data = response.data
+            logger("Resume result: " + data , "debug")            
+            logger("ResumeAll Completed code:" + data.message, "info")
+            refresh()
+        } else {
+            logger("Failed to execute /pauseall: " + response.data, "error")
+        }
+    }
+}
+
 // refresh status
 def refresh() {
     sendEvent(name:"lastRefresh", value: "Checking..." , display: true , displayed: false)
@@ -95,6 +141,7 @@ def refresh() {
              sendEvent(name: "remaining", value: data.remaining)
              sendEvent(name: "valve", value: data.state == 0 ? "closed" : "open")
              sendEvent(name: "switch", value: data.state == 0 ? "off" : "on")
+             sendEvent(name: "paused", value: data.state == 2 ? "yes" : "no")
              updateDeviceLastRefresh()
         } else {
             logger("Failed to get /Zone : " + response.data, "error")
@@ -115,6 +162,7 @@ def poll() {
 def stopAll() {
 	deviceStatus(0)
     parent.sendCommand2(this, "stopall",  0)
+    refresh()
 }
 
 private getUID() {
@@ -130,13 +178,12 @@ void setRunTime(runTimeSecs) {
 	sendEvent("name":"runTime", "value": runTimeSecs)
 }
 
-
-def updateDeviceLastRefresh(refreshDate){
+// Legacy compatibility with the time included, though it is ignored
+def updateDeviceLastRefresh(time) {
     updateDeviceLastRefresh()
 }
 
 def updateDeviceLastRefresh(){
-    
     def refreshDate = new Date()
     def hour = refreshDate.format("h", location.timeZone)
     def minute =refreshDate.format("m", location.timeZone)
@@ -165,7 +212,7 @@ def deviceStatus(status) {
      		sendEvent(name: "switch", value: "off", display: true, displayed: false, isStateChange: true)		// off == closed
  			sendEvent(name: "valve", value: "closed",   display: false, displayed: false)
         }
-
+        sendEvent(name: "paused", value: status == 2 ? "yes" : "no")
         //If device has just recently closed, send notification
         if (oldStatus != 'closed' && oldStatus != null){
         	logger("Logging status.", "debug")
@@ -238,17 +285,17 @@ def deviceStatus(status) {
             def finalString = new Date().format('MM/d/yyyy hh:mm',location.timeZone)
             sendEvent(name: "lastStarted", value: now(), display: false , displayed: false)
             logger("stored lastStarted as : " + device.currentValue("lastStarted"),"debug")
-            //sendEvent(name: "pausume", value: "pause")
         }
+        sendEvent(name: "paused", value: status == 2 ? "yes" : "no")
 	}
 	if (status == 2) {  //Device is pending
-		sendEvent(name: "valve", value: "open", display: true, descriptionText: device.displayName + " was pending")
-        //sendEvent(name: "pausume", value: "pause")
+		sendEvent(name: "valve", value: "open", display: true, descriptionText: device.displayName + " was pending")        
+        sendEvent(name: "paused", value: status == 2 ? "yes" : "no")
 	}
 }
 
 def showVersion(){
-	return "0.9.7"
+	return "0.9.8"
 }
 
 
