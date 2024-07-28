@@ -199,13 +199,28 @@ def updateDeviceStatus(status){
 	deviceStatus(status)
 }
 
+// Helper function to normalize status values between what we get from the RainMachine API and how the values are stored/sent to Hubitat
+// Status values from the RainMachine API are: 0 = off, 1 = on, 2 = pending
+private normalizeStatus(status) {
+    if (status == "off") return 0
+    if (status == "on") return 1
+    if (status == "open") return 2
+    return status
+}
+
 // update status
 def deviceStatus(status) {
-	def oldStatus = device.currentValue("valve")
-	logger("Old Device Status: " + device.currentValue("valve"),  "debug")
-    logger("New Device Status: " + status, "debug")
+    def oldStatus = normalizeStatus(device.currentValue("switch"))
+    def newStatus = normalizeStatus(status)
+    logger("Old Device Status in Hubitat: " + oldStatus, "debug")
+    logger("New Device Status received from RainMachine: " + newStatus, "debug")
 
-    if (status == 0) {	//Device has turned off
+    if (oldStatus == newStatus) {
+        logger("Device status unchanged, no need to update (Old:" + oldStatus + " | New: " +newStatus + ")", "debug")
+        return
+    }
+
+    if (newStatus == 0) {	// Zone is off/0 meaning valve is closed/0
 
  		//Handle null values
 		if (oldStatus == null){
@@ -268,11 +283,11 @@ def deviceStatus(status) {
 
 
 	}
-	if (status == 1) {	//Device has turned on
-		logger("Zone turned on!","debug")
+	if (newStatus == 1) {	// Zone is on/1 meaning the valuve is open/1
+		logger("Zone is on!","debug")
 
         //If device has just recently opened, take note of time
-        if (oldStatus != 'open'){
+        if (oldStatus != 1){
             logger("Logging status.","debug")
             sendEvent(name: "valve", value: "open", display: true, descriptionText: device.displayName + " was active")
             sendEvent(name: "switch", value: "on", display: true, displayed: false, isStateChange: true)		// on == open
@@ -288,7 +303,7 @@ def deviceStatus(status) {
         }
         sendEvent(name: "paused", value: status == 2 ? "yes" : "no")
 	}
-	if (status == 2) {  //Device is pending
+	if (newStatus == 2) {  // Zone is pending/2 meaning the valve is open/1??
 		sendEvent(name: "valve", value: "open", display: true, descriptionText: device.displayName + " was pending")        
         sendEvent(name: "paused", value: status == 2 ? "yes" : "no")
 	}

@@ -133,23 +133,38 @@ def updateDeviceStatus(status){
 	deviceStatus(status)
 }
 
+// Helper function to normalize status values between what we get from the RainMachine API and how the values are stored/sent to Hubitat
+// Status values from the RainMachine API are: 0 = off, 1 = on, 2 = pending
+private normalizeStatus(status) {
+    if (status == "off") return 0
+    if (status == "on") return 1
+    if (status == "open") return 2
+    return status
+}
+
 // update status
 def deviceStatus(status) {
-	def oldStatus = device.currentValue("switch")
-	logger("Old Device Status: " + device.currentValue("switch"), "debug")
-    logger("New Device Status: " + status, "debug")
+    def oldStatus = normalizeStatus(device.currentValue("switch"))
+    def newStatus = normalizeStatus(status)
+    logger("Old Device Status in Hubitat: " + oldStatus, "debug")
+    logger("New Device Status received from RainMachine: " + newStatus, "debug")
 
-    if (status == 0) {	//Device has turned off
+    if (oldStatus == newStatus) {
+        logger("Device status unchanged, no need to update (Old:" + oldStatus + " | New: " +newStatus + ")", "debug")
+        return
+    }
+
+    if (newStatus == 0) {	// Program is not running/off/0
 
  		//Handle null values
 		if (oldStatus == null){
-     		sendEvent(name: "switch", value: "off", display: true, displayed: false, isStateChange: true)		// off == closed 			
+     		sendEvent(name: "switch", value: "off", display: true, displayed: false, isStateChange: true)		// off == 0 			
         }
 
         //If device has just recently closed, send notification
-        if (oldStatus != 'closed' && oldStatus != null){
+        if (oldStatus != 0 && oldStatus != null){
         	logger("Logging status.", "debug")
-            sendEvent(name: "switch", value: "off", display: true, displayed: false, isStateChange: true)		// off == closed
+            sendEvent(name: "switch", value: "off", display: true, displayed: false, isStateChange: true)		// off == 0
             
             //Take note of how long it ran and send notification
             logger("lastStarted: " + device.currentValue("lastStarted"), "debug")
@@ -200,13 +215,13 @@ def deviceStatus(status) {
 
 
 	}
-	if (status == 1) {	//Device has turned on
+	if (newStatus == 1) {	// Program is running/on/1
 		logger("Program set to on!","info")
 
-        //If device has just recently opened, take note of time
-        if (oldStatus != 'open'){
+        // If was not previously running/on/1, send notification
+        if (oldStatus != 1){
             logger("Logging status.","debug")
-            sendEvent(name: "switch", value: "on", display: true, displayed: false, isStateChange: true)		// on == open
+            sendEvent(name: "switch", value: "on", display: true, displayed: false, isStateChange: true)		// on == 1
 
             //Take note of current time the zone started
             def refreshDate = new Date()
@@ -219,7 +234,7 @@ def deviceStatus(status) {
             //sendEvent(name: "pausume", value: "pause")
         }
 	}
-	if (status == 2) {  //Program is pending
+	if (newStatus == 2) {  //Program is pending/2
 		sendEvent(name: "switch", value: "open", display: true, descriptionText: device.displayName + " is pending")
         //sendEvent(name: "pausume", value: "pause")
 	}
