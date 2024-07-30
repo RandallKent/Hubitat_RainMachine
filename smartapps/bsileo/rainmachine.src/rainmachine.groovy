@@ -699,7 +699,7 @@ private getChildType(child) {
 /* for SmartDevice to call */
 // Refresh data
 def refresh() {
-    log.info "refresh()"
+    log.debug "refresh()"
 
     //For programs, we'll only be refreshing programs with matching child devices. Get the count of those so we know when the refresh is done.
     def refreshProgramCount = 0
