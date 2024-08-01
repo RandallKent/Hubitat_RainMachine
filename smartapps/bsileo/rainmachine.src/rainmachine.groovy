@@ -699,8 +699,8 @@ private getChildType(child) {
 /* for SmartDevice to call */
 // Refresh data
 def refresh() {
-    log.debug "refresh()"
-
+    logger("refresh()", "debug")
+    
     //For programs, we'll only be refreshing programs with matching child devices. Get the count of those so we know when the refresh is done.
     def refreshProgramCount = 0
     atomicState.ProgramData.each { dni, program ->
